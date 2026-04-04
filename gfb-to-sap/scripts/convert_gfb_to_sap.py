@@ -27,7 +27,7 @@ VAT_GL          = 13311001
 VAT_NAME        = "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ"
 VENDOR_CODE     = "V00000070"
 VENDOR_NAME     = "CÔNG TY TNHH GRAB"
-VENDOR_MST      = 312650437
+VENDOR_MST      = "312650437"
 VENDOR_ADDRESS  = "268 Tô Hiến Thành, Thành phố Hồ Chí Minh, Quận 10"
 VENDOR_CONTROL  = 33111001
 VENDOR_OFFSET   = 64281001
@@ -289,6 +289,12 @@ def write_sap_excel(sap_rows, output_path):
             val = row_data.get(col)
             if val is not None:
                 ws.cell(row=ri, column=ci, value=val)
+
+        # Cột AJ = MST, luôn xuất dạng text để Excel không hiểu là number
+        mst_cell = ws.cell(row=ri, column=36)
+        if mst_cell.value is not None:
+            mst_cell.number_format = '@'
+            mst_cell.value = str(mst_cell.value)
 
     wb.save(output_path)
 
