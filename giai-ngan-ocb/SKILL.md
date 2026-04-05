@@ -44,20 +44,51 @@ Hỏi người dùng những thông tin sau (nếu chưa cung cấp):
 | **Lãi suất** | 9.5%/năm | Lãi suất hiện tại tại thời điểm giải ngân |
 | **Ngày trả lãi đầu tiên** | 25/06/2026 | Định dạng dd/mm/yyyy |
 
-### Bước 3: Chạy script điền form
+### Bước 3: Tạo bộ hồ sơ 3 file
+#### 3.1. Điền KUNN
 ```bash
 python3 scripts/fill_kunn_form.py \
-  "templates/KUNN_template_VND.docx" \
-  "<output_path>" \
+  "templates/1. KUNN_template_VND.docx" \
+  "<output_kunn_path>" \
   --so-tien <số_tiền> \
   --lai-suat <lãi_suất> \
   --ngay-tra-lai <dd/mm/yyyy>
 ```
 
-Đặt tên file output theo quy tắc: `KUNN_0239_<loại>_<ngày>.docx`
-Ví dụ: `KUNN_0239_VND_01042026.docx` hoặc `KUNN_0239_NGOAITE_01042026.docx`
+#### 3.2. Điền Lịch trả nợ
+- Dùng template: `templates/2. LICH TRA NO KUNN 0239.docx`
+- Input cần có: **tổng số tiền phải trả**
+- Nguyên tắc chia nợ gốc: **12 kỳ**, chia đều, **phần dư để kỳ cuối**
 
-Lưu file output vào cùng thư mục với tờ trình (nếu người dùng chỉ định),
+```bash
+python3 scripts/fill_repayment_schedule.py \
+  "templates/2. LICH TRA NO KUNN 0239.docx" \
+  "<output_schedule_path>" \
+  --tong-so-tien <số_tiền> \
+  --ngay-kunn <dd/mm/yyyy>
+```
+
+#### 3.3. Điền Bảng kê chứng từ
+- Dùng template: `templates/3. Bang ke chung tu KUNN_0239.docx`
+- Tự đọc các file PDF trong bộ hồ sơ thanh toán để liệt kê chứng từ
+- Mỗi bộ hồ sơ có thể có **nhiều chứng từ**, phải tạo **đủ số dòng** theo số chứng từ đọc được
+- Nếu PDF scan kém hoặc thiếu text, fallback tối thiểu là **tên file**, đồng thời nêu rõ điểm cần người dùng rà soát
+
+```bash
+python3 scripts/fill_supporting_documents.py \
+  "templates/3. Bang ke chung tu KUNN_0239.docx" \
+  "<output_docs_path>" \
+  --input-folder "<thư_mục_hồ_sơ_thanh_toán>" \
+  --tong-so-tien <số_tiền> \
+  --ngay-kunn <dd/mm/yyyy>
+```
+
+### Quy tắc đặt tên file output
+- `KUNN_0239_<loại>_<ngày>.docx`
+- `LICH_TRA_NO_KUNN_0239_<ngày>.docx`
+- `BANG_KE_CHUNG_TU_KUNN_0239_<ngày>.docx`
+
+Lưu toàn bộ output vào cùng thư mục với tờ trình (nếu người dùng chỉ định),
 hoặc vào thư mục làm việc hiện tại.
 
 ### Bước 4: Xác nhận với người dùng
@@ -66,7 +97,9 @@ Sau khi tạo xong, trình bày tóm tắt:
 - Ngày ký
 - Lãi suất
 - Ngày trả lãi đầu tiên
-- Link mở file
+- Số kỳ trả nợ và số tiền mỗi kỳ
+- Số dòng chứng từ đã điền
+- Link mở từng file
 
 ## Trường hợp có tờ trình PDF
 Nếu người dùng cung cấp file tờ trình (PDF), đọc và trích xuất:

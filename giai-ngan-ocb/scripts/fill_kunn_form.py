@@ -80,6 +80,17 @@ def replace_all(doc, old, new):
                 for para in cell.paragraphs:
                     replace_in_para(para, old, new)
 
+
+def normalize_rate_text(lai_suat):
+    text = str(lai_suat).strip().replace('%', '')
+    try:
+        value = float(text)
+        if value.is_integer():
+            return f"{int(value)}.0"
+        return f"{value:g}"
+    except ValueError:
+        return text
+
 def delete_para(para):
     """Xóa paragraph khỏi document."""
     p = para._element
@@ -105,35 +116,55 @@ def fill_form(template_path, output_path, so_tien, lai_suat, ngay_tra_lai, nam=N
     # 3. Số tiền trong bảng (Row 0)
     so_tien_fmt = fmt_tien(so_tien)
     bang_chu    = so_thanh_chu(int(so_tien))
+    lai_suat_fmt = normalize_rate_text(lai_suat)
 
     for table in doc.tables:
         for row in table.rows:
-            cell = row.cells[1] if len(row.cells) > 1 else None
-            if not cell: continue
-            texts = [p.text for p in cell.paragraphs]
-            # Nhận diện ô "Số tiền nhận nợ"
-            has_amount_field = any('……………………………….đồng' in t or 'đồng chẵn' in t.lower() for t in texts)
-            if not has_amount_field:
+            if len(row.cells) <= 1:
                 continue
 
-            paras = list(cell.paragraphs)
-            replaced_amount = False
-            replaced_bangchu = False
-            to_delete = []
+            label = row.cells[0].text.strip().lower()
+            cell = row.cells[1]
+            texts = [p.text for p in cell.paragraphs]
 
-            for para in paras:
-                t = para.text
-                if '……………………………….đồng' in t and not replaced_amount:
-                    set_para_text(para, f'{so_tien_fmt} đồng')
-                    replaced_amount = True
-                elif 'Bằng chữ' in t and not replaced_bangchu:
-                    set_para_text(para, f'(Bằng chữ: {bang_chu})')
-                    replaced_bangchu = True
-                elif _is_ellipsis_only(t):
-                    to_delete.append(para)
+            if 'số tiền nhận nợ' in label:
+                paras = list(cell.paragraphs)
+                replaced_amount = False
+                replaced_bangchu = False
+                to_delete = []
 
-            for p in to_delete:
-                delete_para(p)
+                for para in paras:
+                    t = para.text
+                    if ('đồng' in t.lower() or '……………………………….đồng' in t) and not replaced_amount:
+                        set_para_text(para, f'{so_tien_fmt} đồng')
+                        replaced_amount = True
+                    elif 'Bằng chữ' in t and not replaced_bangchu:
+                        set_para_text(para, f'(Bằng chữ: {bang_chu})')
+                        replaced_bangchu = True
+                    elif _is_ellipsis_only(t):
+                        to_delete.append(para)
+
+                if not replaced_amount:
+                    cell.paragraphs[0].text = f'{so_tien_fmt} đồng'
+                if not replaced_bangchu:
+                    cell.add_paragraph(f'(Bằng chữ: {bang_chu})')
+
+                for p in to_delete:
+                    delete_para(p)
+
+            elif 'lãi suất cho vay trong hạn' in label:
+                for para in cell.paragraphs:
+                    t = para.text
+                    if 'Lãi suất cố định như sau:' in t and '%/năm' in t:
+                        import re
+                        new_t = re.sub(
+                            r'(Lãi suất cố định như sau:\s*)([0-9]+(?:\.[0-9]+)?)\s*(%/năm)',
+                            rf'\g<1>{lai_suat_fmt}\g<3>',
+                            t,
+                            count=1,
+                        )
+                        set_para_text(para, new_t)
+                        break
 
     # 4. Ngày trả lãi đầu tiên
     replace_all(doc, '…../……/……….', ngay_tra_lai)
@@ -144,7 +175,7 @@ def fill_form(template_path, output_path, so_tien, lai_suat, ngay_tra_lai, nam=N
         'so_tien_so' : so_tien_fmt,
         'so_tien_chu': bang_chu,
         'ngay_ky'    : f'{dd}/{mm}/{yy}',
-        'lai_suat'   : lai_suat,
+        'lai_suat'   : lai_suat_fmt,
         'ngay_tra_lai': ngay_tra_lai,
     }
 
