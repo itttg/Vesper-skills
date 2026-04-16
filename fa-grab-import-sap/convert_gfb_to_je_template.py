@@ -33,6 +33,8 @@ VENDOR_TAX_CODE = '312650437'
 VENDOR_ADDRESS = '268 Tô Hiến Thành, Thành phố Hồ Chí Minh, Quận 10'
 TAX_GROUP = 'PVN5'
 DEFAULT_COSTING_STRING = '17020101;M999998;M02;ADM;M0100000'
+DEFAULT_PROJECT_CODE = 'M02'
+DEFAULT_BPLID = 7
 GRAB_PREFIX = 'GFB Billing Calculation Report'
 HIGHLIGHT_FILL = PatternFill(fill_type='solid', fgColor='FFF59D')
 TEMPLATE_CANDIDATES = [
@@ -109,6 +111,11 @@ def to_num(value: Any) -> float:
 
 def clean_text(value: Any) -> str:
     return '' if value is None else str(value).strip()
+
+
+
+def coalesce(value: Any, fallback: Any) -> Any:
+    return fallback if value in (None, '') else value
 
 
 
@@ -273,8 +280,8 @@ def load_template_defaults(path: Path) -> TemplateDefaults:
         header_project=header.cell(4, header_map['ProjectCode']).value,
         header_voucher_type=header.cell(4, header_map['U_VoucherTypeID']).value,
         header_branch=header.cell(4, header_map['U_Branch']).value,
-        line_project=line.cell(4, line_map['ProjectCode']).value,
-        line_bplid=line.cell(4, line_map['BPLID']).value,
+        line_project=coalesce(line.cell(4, line_map['ProjectCode']).value, DEFAULT_PROJECT_CODE),
+        line_bplid=coalesce(line.cell(4, line_map['BPLID']).value, DEFAULT_BPLID),
         line_costing2=line.cell(4, line_map['CostingCode2']).value,
         line_costing3=line.cell(4, line_map['CostingCode3']).value,
         line_costing4=line.cell(4, line_map['CostingCode4']).value,
