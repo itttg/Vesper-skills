@@ -6,6 +6,7 @@ import calendar
 import json
 import sys
 from collections import Counter, defaultdict
+from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -13,8 +14,9 @@ from typing import Any, Optional
 
 import openpyxl
 from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
 
-SKILL_DIR = Path(__file__).resolve().parents[1]
+SKILL_DIR = Path(__file__).resolve().parent
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -264,16 +266,19 @@ def load_template_defaults(path: Path) -> TemplateDefaults:
     wb = openpyxl.load_workbook(path)
     header = wb['JE-Header']
     line = wb['JE-Line']
+    ensure_line_taxdate_column(line)
+    header_map = get_header_map(header)
+    line_map = get_header_map(line)
     defaults = TemplateDefaults(
-        header_project=header.cell(4, 7).value,
-        header_voucher_type=header.cell(4, 9).value,
-        header_branch=header.cell(4, 10).value,
-        line_project=line.cell(4, 15).value,
-        line_bplid=line.cell(4, 22).value,
-        line_costing2=line.cell(4, 17).value,
-        line_costing3=line.cell(4, 18).value,
-        line_costing4=line.cell(4, 19).value,
-        line_costing5=line.cell(4, 20).value,
+        header_project=header.cell(4, header_map['ProjectCode']).value,
+        header_voucher_type=header.cell(4, header_map['U_VoucherTypeID']).value,
+        header_branch=header.cell(4, header_map['U_Branch']).value,
+        line_project=line.cell(4, line_map['ProjectCode']).value,
+        line_bplid=line.cell(4, line_map['BPLID']).value,
+        line_costing2=line.cell(4, line_map['CostingCode2']).value,
+        line_costing3=line.cell(4, line_map['CostingCode3']).value,
+        line_costing4=line.cell(4, line_map['CostingCode4']).value,
+        line_costing5=line.cell(4, line_map['CostingCode5']).value,
     )
     wb.close()
     return defaults
@@ -289,6 +294,16 @@ def clear_sheet_data(ws, from_row: int, max_col: int) -> None:
 
 
 
+def get_header_map(ws, header_row: int = 2) -> dict[str, int]:
+    header_map: dict[str, int] = {}
+    for col_idx in range(1, ws.max_column + 1):
+        header_name = clean_text(ws.cell(header_row, col_idx).value)
+        if header_name:
+            header_map[header_name] = col_idx
+    return header_map
+
+
+
 def ensure_line_taxdate_column(ws) -> None:
     headers = [ws.cell(2, c).value for c in range(1, ws.max_column + 1)]
     if 'TaxDate' in headers:
@@ -301,6 +316,45 @@ def ensure_line_taxdate_column(ws) -> None:
     ws.cell(1, insert_at).value = 'Nhập ngày hóa đơn, format: YYYYMMDD'
     ws.cell(2, insert_at).value = 'TaxDate'
     ws.cell(3, insert_at).value = 'TaxDate'
+
+
+
+def normalize_line_sheet_layout(ws) -> None:
+    ensure_line_taxdate_column(ws)
+    header_map = get_header_map(ws)
+    missing = [col for col in LINE_COLUMNS if col not in header_map]
+    if missing:
+        raise ValueError(f'JE-Line template thiếu cột bắt buộc: {missing}')
+
+    preserved_cells: dict[int, list[Any]] = {}
+    preserved_styles: dict[int, list[Any]] = {}
+    preserved_widths: dict[int, Any] = {}
+    preserved_hidden: dict[int, bool] = {}
+
+    for target_idx, col_name in enumerate(LINE_COLUMNS, start=1):
+        source_idx = header_map[col_name]
+        preserved_cells[target_idx] = [ws.cell(row_idx, source_idx).value for row_idx in range(1, 4)]
+        preserved_styles[target_idx] = [copy(ws.cell(row_idx, source_idx)._style) for row_idx in range(1, 4)]
+        source_letter = get_column_letter(source_idx)
+        preserved_widths[target_idx] = ws.column_dimensions[source_letter].width
+        preserved_hidden[target_idx] = bool(ws.column_dimensions[source_letter].hidden)
+
+    for row_idx in range(1, 4):
+        for col_idx in range(1, ws.max_column + 1):
+            ws.cell(row_idx, col_idx).value = None
+
+    for target_idx in range(1, len(LINE_COLUMNS) + 1):
+        for row_offset, row_idx in enumerate(range(1, 4)):
+            cell = ws.cell(row_idx, target_idx)
+            cell.value = preserved_cells[target_idx][row_offset]
+            cell._style = copy(preserved_styles[target_idx][row_offset])
+        target_letter = get_column_letter(target_idx)
+        ws.column_dimensions[target_letter].width = preserved_widths[target_idx]
+        ws.column_dimensions[target_letter].hidden = preserved_hidden[target_idx]
+
+    for col_idx in range(len(LINE_COLUMNS) + 1, ws.max_column + 1):
+        for row_idx in range(1, 4):
+            ws.cell(row_idx, col_idx).value = None
 
 
 
@@ -550,20 +604,24 @@ def write_output(template_path: Path, output_path: Path, header_rows: list[dict[
     header_ws = wb['JE-Header']
     line_ws = wb['JE-Line']
 
-    ensure_line_taxdate_column(line_ws)
+    normalize_line_sheet_layout(line_ws)
+    header_map = get_header_map(header_ws)
+    line_map = get_header_map(line_ws)
 
-    clear_sheet_data(header_ws, 4, len(HEADER_COLUMNS))
-    clear_sheet_data(line_ws, 4, len(LINE_COLUMNS))
+    clear_sheet_data(header_ws, 4, max(header_ws.max_column, len(HEADER_COLUMNS)))
+    clear_sheet_data(line_ws, 4, max(line_ws.max_column, len(LINE_COLUMNS)))
 
     for row_idx, row_data in enumerate(header_rows, start=4):
-        for col_idx, col_name in enumerate(HEADER_COLUMNS, start=1):
+        for col_name in HEADER_COLUMNS:
+            col_idx = header_map[col_name]
             cell = header_ws.cell(row_idx, col_idx, row_data.get(col_name))
             if row_data.get('JdtNum') in highlight_header_keys:
                 cell.fill = HIGHLIGHT_FILL
 
     for row_idx, row_data in enumerate(line_rows, start=4):
         line_key = (row_data.get('ParentKey'), row_data.get('LineNum'))
-        for col_idx, col_name in enumerate(LINE_COLUMNS, start=1):
+        for col_name in LINE_COLUMNS:
+            col_idx = line_map[col_name]
             cell = line_ws.cell(row_idx, col_idx, row_data.get(col_name))
             if line_key in highlight_line_keys:
                 cell.fill = HIGHLIGHT_FILL
