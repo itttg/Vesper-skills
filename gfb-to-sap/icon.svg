@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Grab For Business to SAP">
-  <rect x="6" y="10" width="52" height="44" rx="10" fill="#00B14F"/>
-  <path d="M18 22c4-6 14-8 20-3 2 2 3 4 4 7" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-  <path d="M22 30c3-4 9-5 13-2 1 1 2 2 3 4" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-  <path d="M44 40l10 10" stroke="#FACC15" stroke-width="4" stroke-linecap="round"/>
-  <path d="M39 50l15-15" stroke="#FACC15" stroke-width="4" stroke-linecap="round"/>
-</svg>
