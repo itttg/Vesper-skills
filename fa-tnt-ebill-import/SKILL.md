@@ -83,6 +83,7 @@ Các rule dưới đây bám theo template JE mới đã confirm:
 - VAT mặc định: `8%`
 - Base amount = `ROUND(TONG_NO / 1.08)`
 - VAT amount = `TONG_NO - Base amount`
+- Trên dòng VAT, cột `BaseSum` phải lấy **giá trị trước thuế** (`Base amount`), không lấy tổng tiền thanh toán.
 - Vendor mặc định:
   - `Mã đối tác`: `V00000162`
   - `Tên đối tác`: `CHI NHÁNH TỔNG CÔNG TY ĐIỆN LỰC TPHCM TNHH-CÔNG TY ĐIỆN LỰC SÀI GÒN`

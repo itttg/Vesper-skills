@@ -135,7 +135,15 @@ VAT_RATE = 0.08
 
 COLUMN_ALIASES = {
     "row_no": ["STT", "ROW NO", "ROW_NO"],
-    "gross_amount": ["TONG_NO", "TỔNG NỢ", "TỔNG TIỀN", "GROSS AMOUNT", "THÀNH TIỀN", "THANH TIEN"],
+    "gross_amount": [
+        "TONG_NO",
+        "TỔNG NỢ",
+        "TỔNG TIỀN",
+        "GROSS AMOUNT",
+        "THÀNH TIỀN",
+        "THANH TIEN",
+        "AMOUNT",
+    ],
     "invoice_no": [
         "SỐ HD",
         "SỐ HĐ",
@@ -147,6 +155,7 @@ COLUMN_ALIASES = {
         "SO HOA DON",
         "INVOICE NO",
         "INVOICE NUMBER",
+        "INVOICE_NUMBER",
     ],
     "invoice_series": [
         "KÝ HIỆU",
@@ -159,6 +168,7 @@ COLUMN_ALIASES = {
         "MA KY HIEU",
         "INVOICE SERIES",
         "SERIES",
+        "VAT_INVOICE_SERIAL",
     ],
     "issue_date": [
         "NGÀY PHÁT HÀNH",
@@ -169,6 +179,7 @@ COLUMN_ALIASES = {
         "ISSUE DATE",
         "NGÀY HÓA ĐƠN",
         "NGAY HOA DON",
+        "VAT_INVOICE_DATE",
     ],
     "customer_code": ["MA_KHANG", "MÃ KHÁCH HÀNG", "CUSTOMER CODE"],
     "customer_name": ["TEN_KHANG", "TÊN KHÁCH HÀNG", "CUSTOMER NAME"],
@@ -179,7 +190,7 @@ COLUMN_ALIASES = {
     "invoice_flag": ["HD", "HĐ", "HOA DON FLAG", "INVOICE FLAG"],
 }
 
-REQUIRED_LOGICAL_COLUMNS = ["row_no", "gross_amount", "invoice_no", "invoice_series", "issue_date"]
+REQUIRED_LOGICAL_COLUMNS = ["gross_amount", "invoice_no", "invoice_series", "issue_date"]
 
 PROFILE_SIGNATURES = {
     "legacy_layout": {"invoice_no": {"SỐ HD", "SỐ HĐ", "SO HD", "SO HĐ"}, "invoice_series": {"KÝ HIỆU", "KY HIEU"}},
@@ -505,7 +516,7 @@ def detect_best_sheet(workbook) -> tuple[Any, int, dict[str, int], dict[str, str
             "required_hits": required_hits,
             "score": score,
         })
-        if best is None or (required_hits, score, -row_idx) > (best[3], best[4], -best[1]):
+        if best is None or (required_hits, score, -row_idx) > (best[4], best[5], -best[1]):
             best = (ws, row_idx, mapping, headers, required_hits, score)
 
     if best is None:
@@ -538,13 +549,15 @@ def read_input_rows(input_file: Path) -> tuple[str, list[InputRow], dict[str, An
     skipped_rows_detail: list[dict[str, Any]] = []
     warnings: list[str] = []
 
+    synthetic_row_no = 0
     for excel_row_idx, excel_row in enumerate(ws.iter_rows(min_row=header_row + 1, values_only=True), start=header_row + 1):
-        row_no = parse_row_no(get_cell(excel_row, column_map, "row_no"))
+        raw_row_no = get_cell(excel_row, column_map, "row_no")
+        row_no = parse_row_no(raw_row_no)
         if row_no is None:
-            if any(normalize_text(v) for v in excel_row):
-                skipped_rows += 1
-                skipped_rows_detail.append(build_skip_detail(excel_row_idx, None, "No usable row number or summary row"))
-            continue
+            if not any(normalize_text(v) for v in excel_row):
+                continue
+            synthetic_row_no += 1
+            row_no = synthetic_row_no
 
         try:
             invoice_no = normalize_text(get_cell(excel_row, column_map, "invoice_no"))
@@ -677,7 +690,7 @@ def build_entries(item: InputRow, jdt_num: int, line_start: int, header_memo: st
         project_code=PROJECT_CODE,
         costing_codes=["", "", "", "", ""],
         remarks_je=description,
-        base_sum=item.gross_amount,
+        base_sum=base_amount,
         tax_group=TAX_GROUP,
         invoice_no=item.invoice_no,
         invoice_date=invoice_date,
