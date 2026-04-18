@@ -499,6 +499,14 @@ def build_skip_detail(excel_row: int, row_no: Optional[int], reason: str) -> dic
 
 
 
+def normalize_invoice_series_for_sap(value: str) -> str:
+    text = normalize_text(value)
+    if text.startswith("1") and len(text) > 1:
+        return text[1:]
+    return text
+
+
+
 def detect_best_sheet(workbook) -> tuple[Any, int, dict[str, int], dict[str, str], dict[str, Any]]:
     best = None
     diagnostics = []
@@ -694,7 +702,7 @@ def build_entries(item: InputRow, jdt_num: int, line_start: int, header_memo: st
         tax_group=TAX_GROUP,
         invoice_no=item.invoice_no,
         invoice_date=invoice_date,
-        invoice_series=item.invoice_series,
+        invoice_series=normalize_invoice_series_for_sap(item.invoice_series),
         invoice_template="",
         is_vat="Y",
         bp_code=PARTNER_CODE,

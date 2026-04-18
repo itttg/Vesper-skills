@@ -105,6 +105,7 @@ Các rule dưới đây bám theo template JE mới đã confirm:
   - cột `L` (`LineMemo`) lấy đúng theo giá trị cột `D` của sheet `JE-Header`.
   - cột `M` (`ReferenceDate1`) lấy theo `ReferenceDate` trên sheet `JE-Header`.
   - cột `TaxDate` lấy theo **ngày thực tế của hóa đơn**.
+  - cột `U_InvSeri`: nếu ký hiệu hóa đơn bắt đầu bằng ký tự `1` thì bỏ ký tự `1` đầu tiên trước khi ghi ra output SAP.
 
 ## Template nội bộ
 Skill sinh theo template đã được đóng gói sẵn ngay trong skill:
